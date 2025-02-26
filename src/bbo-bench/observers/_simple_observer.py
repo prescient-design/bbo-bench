@@ -1,14 +1,10 @@
-from typing import Iterable
-from pathlib import Path
-
-import numpy as np
-import matplotlib.pyplot as plt
 import json
-
-import wandb
+from pathlib import Path
+from typing import Iterable
 
 import Levenshtein
-
+import numpy as np
+import wandb
 from poli.core.black_box_information import BlackBoxInformation
 from poli.core.util.abstract_observer import AbstractObserver
 
@@ -30,8 +26,12 @@ class SimpleObserver(AbstractObserver):
         self.outer_loop_step = 0
 
     def initialize_observer(
-        self, problem_setup_info: BlackBoxInformation, caller_info: object, seed: int
-    ) -> object: ...
+        self,
+        problem_setup_info: BlackBoxInformation,
+        caller_info: object,
+        seed: int,
+    ) -> object:
+        ...
 
     def get_frac_unique(self, sol_list: Iterable) -> float:
         """
@@ -60,8 +60,16 @@ class SimpleObserver(AbstractObserver):
         distances = []
         for i in range(len(sol_list_strings)):
             for j in range(i + 1, len(sol_list_strings)):
-                distances.append(Levenshtein.distance(sol_list_strings[i], sol_list_strings[j]))
-        return 2*np.sum(distances) / (len(sol_list_strings)*(len(sol_list_strings)-1))
+                distances.append(
+                    Levenshtein.distance(
+                        sol_list_strings[i], sol_list_strings[j]
+                    )
+                )
+        return (
+            2
+            * np.sum(distances)
+            / (len(sol_list_strings) * (len(sol_list_strings) - 1))
+        )
 
     def exp_lev_kernel(self, seq1, seq2, gamma=1.0):
         """
@@ -78,8 +86,7 @@ class SimpleObserver(AbstractObserver):
         distance = Levenshtein.distance(seq1, seq2)
         return np.exp(-gamma * distance)
 
-
-    def compute_mmd(self, X, Y, gamma=1.0/10):
+    def compute_mmd(self, X, Y, gamma=1.0 / 10):
         """
         Compute Maximum Mean Discrepancy between samples X and Y.
 
@@ -98,28 +105,32 @@ class SimpleObserver(AbstractObserver):
         m = len(X)
         n = len(Y)
 
-        #sum of K_XX entries
+        # sum of K_XX entries
         xx_sum = 0
         for i in range(m):
             for j in range(i + 1, m):
                 xx_sum += self.exp_lev_kernel(X[i], X[j], gamma)
-        mmd_squared = xx_sum / (m*(m-1)/2)
+        mmd_squared = xx_sum / (m * (m - 1) / 2)
 
-        #sum of K_YY entries
+        # sum of K_YY entries
         yy_sum = 0
         for i in range(n):
             for j in range(i + 1, n):
                 yy_sum += self.exp_lev_kernel(Y[i], Y[j], gamma)
-        mmd_squared += yy_sum / (n*(n-1)/2)
+        mmd_squared += yy_sum / (n * (n - 1) / 2)
 
-        #sum of K_XY entries
+        # sum of K_XY entries
         xy_sum = 0
         for i in range(m):
             for j in range(n):
                 xy_sum += self.exp_lev_kernel(X[i], Y[j], gamma)
-        mmd_squared -= 2 * xy_sum / (m*n)
+        mmd_squared -= 2 * xy_sum / (m * n)
 
-        return xx_sum/(m*(m-1)/2) , yy_sum/(n*(n-1)/2), xy_sum/(m*n)  # Return MMD components
+        return (
+            xx_sum / (m * (m - 1) / 2),
+            yy_sum / (n * (n - 1) / 2),
+            xy_sum / (m * n),
+        )  # Return MMD components
 
     def add_initial_sols(self, xs: np.ndarray, ys: np.ndarray) -> None:
         """
@@ -135,7 +146,6 @@ class SimpleObserver(AbstractObserver):
             self.rounds.append(-1)
         for y in ys:
             self.y_s.append(y[None, :])
-
 
     def observe(self, x: np.ndarray, y: np.ndarray, context=None) -> None:
         """
@@ -166,20 +176,35 @@ class SimpleObserver(AbstractObserver):
             self.running_sols.pop(0)
         self.running_sols.append(x)
 
-        if self.step % (self.cfg.log_interval * self.cfg.optimizer.num_samples) == 0:
+        if (
+            self.step
+            % (self.cfg.log_interval * self.cfg.optimizer.num_samples)
+            == 0
+        ):
             if self.initial_sols is None:
                 self.initial_sols = self.running_sols.copy()
-            xx_mean, yy_mean, xy_mean = self.compute_mmd(self.running_sols, self.initial_sols)
+            xx_mean, yy_mean, xy_mean = self.compute_mmd(
+                self.running_sols, self.initial_sols
+            )
             self.outer_loop_step += 1
 
             metrics = {
                 "black_box/simple_regret_best": simple_regret_best,
                 "black_box/cumulative_regret": self.cumulative_regret,
-                "black_box/running_average_regret": 1-float(np.ma.masked_invalid(self.running_rewards).mean()),
-                "black_box/running_fraction_feasible": float(np.mean(np.array(self.running_rewards) > float("-inf"))),
-                "black_box/running_fraction_unique": self.get_frac_unique(self.running_sols),
-                "black_box/running_diversity": self.get_diversity(self.running_sols),
-                "black_box/mmd_to_initial_sols": np.sqrt(max(xx_mean + yy_mean - 2*xy_mean, 0)),
+                "black_box/running_average_regret": 1
+                - float(np.ma.masked_invalid(self.running_rewards).mean()),
+                "black_box/running_fraction_feasible": float(
+                    np.mean(np.array(self.running_rewards) > float("-inf"))
+                ),
+                "black_box/running_fraction_unique": self.get_frac_unique(
+                    self.running_sols
+                ),
+                "black_box/running_diversity": self.get_diversity(
+                    self.running_sols
+                ),
+                "black_box/mmd_to_initial_sols": np.sqrt(
+                    max(xx_mean + yy_mean - 2 * xy_mean, 0)
+                ),
                 "black_box/timestep": self.step,
                 "black_box/outer_loop_step": self.outer_loop_step,
             }
@@ -193,8 +218,8 @@ class SimpleObserver(AbstractObserver):
             filename: Name of the file to save the data
         """
         if self.cfg.save_intermediate_sols:
-            x_s = np.concat(self.x_s, axis=0)[:,0]
-            y_s = np.concat(self.y_s, axis=0)[:,0]
+            x_s = np.concat(self.x_s, axis=0)[:, 0]
+            y_s = np.concat(self.y_s, axis=0)[:, 0]
             x_s = [str(x) for x in x_s]
             y_s = [float(y) for y in y_s]
             print(x_s)
