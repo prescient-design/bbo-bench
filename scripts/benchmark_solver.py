@@ -1,5 +1,6 @@
 import json
 import random
+import tempfile
 
 import boto3
 import hydra
@@ -113,6 +114,35 @@ def main(cfg):
     with open_dict(cfg.optimizer):
         if cfg.optimizer.name == "LaMBO2":
             logger = hydra.utils.instantiate(cfg.optimizer.trainer.logger)
+
+            # Use black_box vocab to create temporary vocab file for LaMBO2
+            lambo_vocab = black_box.alphabet
+            lambo_vocab.extend(
+                [
+                    "<cls>",
+                    "<pad>",
+                    "<eos>",
+                    "<unk>",
+                    ".",
+                    "-",
+                    "<mask>",
+                ]
+            )
+
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".txt", delete=False
+            ) as temp_file:
+                # Write each token to the file, one per line
+                for token in lambo_vocab:
+                    temp_file.write(f"{token}\n")
+                # Get the name of the temporary file
+                temp_file_name = temp_file.name
+
+            print(
+                f"Tokens have been written to temporary file: {temp_file_name}"
+            )
+            cfg.optimizer.tasks.protein_generation.protein_seq.tokenizer.vocab_file = temp_file_name
+            cfg.optimizer.roots.protein_seq.tokenizer_transform.tokenizer.vocab_file = temp_file_name
 
             optimizer = LaMBO2(
                 config=cfg.optimizer,
