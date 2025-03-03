@@ -2,8 +2,7 @@ import tempfile
 
 
 def add_vocab_to_lambo_cfg(cfg, vocab: list):
-    """
-    Update given LaMBO2 config file with desired vocab
+    """Update given LaMBO2 config file with desired vocab
 
     Args:
         cfg: The LaMBO2 config file.

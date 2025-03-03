@@ -34,8 +34,7 @@ class SimpleObserver(AbstractObserver):
         ...
 
     def get_frac_unique(self, sol_list: Iterable) -> float:
-        """
-        Compute the fraction of sequences that are unique in a list
+        """Compute the fraction of sequences that are unique in a list
 
         Args:
             sol_list: Iterable of sequences
@@ -47,8 +46,7 @@ class SimpleObserver(AbstractObserver):
         return len(set(sol_list_strings)) / len(sol_list)
 
     def get_diversity(self, sol_list: Iterable):
-        """
-        Compute the average Levenshtein distance between every pair of sequences in a list
+        """Compute the average Levenshtein distance between every pair of sequences in a list
 
         Args:
             sol_list: Iterable of sequences
@@ -72,8 +70,7 @@ class SimpleObserver(AbstractObserver):
         )
 
     def exp_lev_kernel(self, seq1, seq2, gamma=1.0):
-        """
-        Compute the exponential Levenshtein kernel between two sequences.
+        """Compute the exponential Levenshtein kernel between two sequences.
 
         Args:
             seq1: First sequence
@@ -87,8 +84,7 @@ class SimpleObserver(AbstractObserver):
         return np.exp(-gamma * distance)
 
     def compute_mmd(self, X, Y, gamma=1.0 / 10):
-        """
-        Compute Maximum Mean Discrepancy between samples X and Y.
+        """Compute Maximum Mean Discrepancy between samples X and Y.
 
         Args:
             X: list of samples from first distribution
@@ -133,8 +129,7 @@ class SimpleObserver(AbstractObserver):
         )  # Return MMD components
 
     def add_initial_sols(self, xs: np.ndarray, ys: np.ndarray) -> None:
-        """
-        Add initial solutions to the observer
+        """Add initial solutions to the observer
 
         Args:
             xs: Initial solutions
@@ -148,8 +143,7 @@ class SimpleObserver(AbstractObserver):
             self.y_s.append(y[None, :])
 
     def observe(self, x: np.ndarray, y: np.ndarray, context=None) -> None:
-        """
-        Observe a new solution and its reward and log the data with wandb
+        """Observe a new solution and its reward and log the data with wandb
 
         Args:
             x: New solution submitted to black box as a query
@@ -211,8 +205,7 @@ class SimpleObserver(AbstractObserver):
             wandb.log(metrics)
 
     def finish(self, filename):
-        """
-        Finish and save the observer data to a file
+        """Finish and save the observer data to a file
 
         Args:
             filename: Name of the file to save the data
