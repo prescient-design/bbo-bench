@@ -1,13 +1,11 @@
-import json
 import random
 
-import boto3
 import hydra
 import numpy as np
 import torch
 import wandb
 from bbo_bench.observers import SimpleObserver
-from bbo_bench.utils import add_vocab_to_lambo_cfg
+from bbo_bench.utils import add_vocab_to_lambo_cfg, load_presolved_data
 from holo.logging import wandb_setup
 from omegaconf import OmegaConf, open_dict
 from poli_baselines.solvers.bayesian_optimization.lambo2 import LaMBO2
@@ -52,7 +50,7 @@ def main(cfg):
             black_box=black_box,
             x0=x0,
             y0=y0,
-            population_size=1000,
+            population_size=50,
             prob_of_mutation=0.005,
         )
 
@@ -63,46 +61,7 @@ def main(cfg):
 
     # If not running presolver, load solutions from data package
     else:
-        bucket = cfg.ga_solution.bucket
-        key_prefix = cfg.ga_solution.key_prefix
-        s3_obj = boto3.client("s3")
-        s3_clientobj_ehrlich = s3_obj.get_object(
-            Bucket=bucket, Key=key_prefix + "ehrlich.jsonl"
-        )
-        s3_ehrlich_data = (
-            s3_clientobj_ehrlich["Body"].read().decode("utf-8").splitlines()
-        )
-        ehrlich_data = [json.loads(line) for line in s3_ehrlich_data]
-
-        s3_clientobj_presolved = s3_obj.get_object(
-            Bucket=bucket, Key=key_prefix + "plain_pairs.jsonl"
-        )
-        s3_presolved_data = (
-            s3_clientobj_presolved["Body"].read().decode("utf-8").splitlines()
-        )
-        presolved_data = [json.loads(line) for line in s3_presolved_data]
-
-        # Sanity check that black box is the same between this experiment and the data package
-        print("Data package black box info:", ehrlich_data)
-
-        # Reformat solutions from data package to match black box API
-        presolver_x = [record["particle"] for record in presolved_data]
-        vocab = black_box.alphabet
-
-        def convert_to_alphabet(x):
-            new_x = []
-            for elem in x:
-                new_x.append([vocab[int(e)] for e in elem])
-            return new_x
-
-        presolver_x = [eval(x) for x in presolver_x]
-        presolver_x = np.array(convert_to_alphabet(presolver_x))
-        presolver_y = (
-            -1
-            * np.array(
-                [(record["score"]) for record in presolved_data], dtype=float
-            )[:, None]
-        )
+        presolver_x, presolver_y = load_presolved_data(cfg, black_box)
 
     # Instantiate observer to record metrics
     observer = SimpleObserver(cfg=cfg, opt_val=opt_val)
