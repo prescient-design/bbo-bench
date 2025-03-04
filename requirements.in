@@ -1,0 +1,7 @@
+numpy
+json
+hydra-core
+wandb
+pytorch-holo
+poli-core
+poli-baselines[lambo2]
