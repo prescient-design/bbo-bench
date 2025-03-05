@@ -50,7 +50,7 @@ def main(cfg):
             black_box=black_box,
             x0=x0,
             y0=y0,
-            population_size=50,
+            population_size=1000,
             prob_of_mutation=0.005,
         )
 
@@ -61,6 +61,7 @@ def main(cfg):
 
     # If not running presolver, load solutions from data package
     else:
+        assert cfg.presolved_data_package is not None
         presolver_x, presolver_y = load_presolved_data(cfg, black_box)
 
     # Instantiate observer to record metrics
@@ -79,10 +80,11 @@ def main(cfg):
             vocab = black_box.alphabet
             cfg = add_vocab_to_lambo_cfg(cfg, vocab)
 
+            # Instantiate LaMBO2 optimizer
             optimizer = LaMBO2(
                 config=cfg.optimizer,
                 black_box=black_box,
-                x0=presolver_x,  # inconsistent API; fixed it
+                x0=presolver_x,
                 y0=presolver_y.reshape(-1, 1),
                 max_epochs_for_retraining=cfg.optimizer.max_epochs,
                 logger=logger,

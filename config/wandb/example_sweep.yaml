@@ -1,0 +1,49 @@
+project: bbo_bench_example
+method: grid
+metric:
+  goal: minimize
+  name: black_box/cumulative_regret
+
+parameters:
+  exp_name:
+    value: example_sweep
+  random_seed:
+    value: 0
+  test_function:
+    value: ehrlich_L32_V32_C4_K4
+  presolved_data_package:
+    value: ehrlich_L32_V32_C4_K4
+  num_opt_steps:
+    value: 12
+
+  # LaMBO-2 Optimizer Parameters
+  optimizer.batch_size:
+    value: 128
+  optimizer.num_samples:
+    value: 128
+  optimizer.num_steps:
+    values: [2, 4]
+  optimizer.num_mutations_per_step:
+    values: [2, 4]
+  optimizer.max_epochs:
+    value: 16
+  optimizer.fft_expansion_factor:
+    value: 2
+  optimizer.optim.max_guidance_updates:
+    value: 2
+  optimizer.optim.guidance_step_size:
+    distribution: log_normal
+    mu: -3.4
+    sigma: 1
+  optimizer.optim.kl_weight:
+    value: 0
+  optimizer.optim.exclude_initial_solution:
+    value: False
+
+
+program: benchmark_optimizer.py
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args_no_hyphens}
