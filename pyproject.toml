@@ -4,14 +4,27 @@ dynamic = ["version"]
 name = "bbo-bench"
 readme = "README.md"
 requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "hydra-core",
+    "wandb",
+    "pytorch-holo @ git+https://github.com/prescient-design/holo-bench.git",
+    "poli-core @ git+https://github.com/MachineLearningLifeScience/poli.git",
+    "poli-baselines[lambo2] @ git+https://github.com/MachineLearningLifeScience/poli-baselines.git@main",
+    "levenshtein",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pip-tools",
+    "pytest-cov",
+    "pre-commit",
+]
 
 [build-system]
 requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
-
-[tool.setuptools.dynamic]
-dependencies = {file = ["requirements.in"]}
-optional-dependencies = {dev = {file = ["requirements-dev.in"]}}
 
 [tool.ruff]
 ignore-init-module-imports = true

@@ -1,7 +1,7 @@
 numpy
-json
 hydra-core
 wandb
 pytorch-holo
-poli-core
-poli-baselines[lambo2]
+poli-core @ git+https://github.com/MachineLearningLifeScience/poli.git
+poli-baselines[lambo2] @ git+https://github.com/MachineLearningLifeScience/poli-baselines.git@main
+levenshtein
