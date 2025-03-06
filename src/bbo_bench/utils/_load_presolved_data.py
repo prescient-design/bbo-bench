@@ -2,17 +2,30 @@ import json
 
 import boto3
 import numpy as np
+import pooch
 
 
-def load_presolved_data(cfg, black_box, source="s3"):
-    if source == "s3":
-        s3_ehrlich_data, s3_presolved_data = load_s3_data(
-            cfg.presolved_data_package.bucket,
-            cfg.presolved_data_package.key_prefix,
+def load_presolved_data(cfg, black_box):
+    """Load presolved data from either an S3 bucket or URL.
+
+    Args:
+        cfg: config file specifying where to find the presolved data.
+        black_box: black box function being optimized.
+
+    Returns:
+        presolver_x: The initial solutions to pass to the optimizer.
+        presolver_y: The initial scores to pass to the optimizer.
+    """
+    if "s3" in cfg.bucket_or_url:
+        ehrlich_data, presolved_data = _load_s3_data(
+            cfg.bucket_or_url,
+            cfg.folder_name,
         )
-    ehrlich_data = [json.loads(line) for line in s3_ehrlich_data]
-
-    presolved_data = [json.loads(line) for line in s3_presolved_data]
+    else:
+        ehrlich_data, presolved_data = _load_url_data(
+            cfg.bucket_or_url,
+            cfg.folder_name,
+        )
 
     # Sanity check that black box is the same between this experiment and the data package
     print("Data package black box info:", ehrlich_data)
@@ -35,10 +48,21 @@ def load_presolved_data(cfg, black_box, source="s3"):
             [(record["score"]) for record in presolved_data], dtype=float
         )[:, None]
     )
+
     return presolver_x, presolver_y
 
 
-def load_s3_data(bucket, key_prefix):
+def _load_s3_data(bucket, key_prefix):
+    """Load data from S3 bucket.
+
+    Args:
+        bucket (str): The S3 bucket name.
+        key_prefix (str): The prefix for the key of the data file.
+
+    Returns:
+        ehrlich_data: The Ehrlich function specification.
+        presolved_data: The initial training data to pass to the optimizer.
+    """
     s3_obj = boto3.client("s3")
     s3_clientobj_ehrlich = s3_obj.get_object(
         Bucket=bucket, Key=key_prefix + "ehrlich.jsonl"
@@ -53,4 +77,43 @@ def load_s3_data(bucket, key_prefix):
     s3_presolved_data = (
         s3_clientobj_presolved["Body"].read().decode("utf-8").splitlines()
     )
-    return s3_ehrlich_data, s3_presolved_data
+
+    ehrlich_data = [json.loads(line) for line in s3_ehrlich_data]
+    presolved_data = [json.loads(line) for line in s3_presolved_data]
+
+    return ehrlich_data, presolved_data
+
+
+def _load_url_data(url, data_folder_name):
+    """Uses pooch to fetch and load data from a URL.
+
+    Args:
+        url (str): The URL to download the data from.
+        data_folder_name (str): The desired folder to access data from.
+
+    Returns:
+        ehrlich_data: The Ehrlich function specification.
+        presolved_data: The initial training data to pass to the optimizer.
+    """
+    unpack = pooch.Untar(
+        members=[
+            data_folder_name + "/ehrlich.jsonl",
+            data_folder_name + "/plain_pairs.jsonl",
+        ]
+    )
+
+    fnames = pooch.retrieve(url=url, known_hash=None, processor=unpack)
+
+    for fname in fnames:
+        if fname.endswith("ehrlich.jsonl"):
+            ehrlich_file_path = fname
+        elif fname.endswith("plain_pairs.jsonl"):
+            presolved_file_path = fname
+
+    # Load the data
+    with open(ehrlich_file_path) as f:
+        ehrlich_data = [json.loads(line) for line in f]
+    with open(presolved_file_path) as f:
+        presolved_data = [json.loads(line) for line in f]
+
+    return ehrlich_data, presolved_data
