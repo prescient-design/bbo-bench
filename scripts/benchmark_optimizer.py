@@ -62,7 +62,9 @@ def main(cfg):
     # If not running presolver, load solutions from data package
     else:
         assert cfg.presolved_data_package is not None
-        presolver_x, presolver_y = load_presolved_data(cfg, black_box)
+        presolver_x, presolver_y = load_presolved_data(
+            cfg.presolved_data_package, black_box
+        )
 
     # Instantiate observer to record metrics
     observer = SimpleObserver(cfg=cfg, opt_val=opt_val)

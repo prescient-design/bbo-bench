@@ -1,0 +1,9 @@
+_target_: poli.objective_repository.EhrlichHoloBlackBox
+sequence_length: 32
+n_motifs: 4
+motif_length: 4
+quantization: 2
+epistasis_factor: 0.0
+noise_std: 0.0
+alphabet: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", '1', '2', '3', '4', '5', '6'] # vocab of 32
+seed: 50494 # change this if you want to change the actual test function instance
