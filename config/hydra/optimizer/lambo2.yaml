@@ -1,0 +1,43 @@
+defaults:
+  - tree: sequence_model_conservative
+  - roots: [protein_seq]
+  - trunk: sum_trunk
+  - branches: [protein_constraint, protein_property, protein_generation]
+  # - branches: [protein_property, protein_generation]
+  - tasks:
+    - generic_constraint
+    - generic_task
+    - protein_seq
+  - guidance_objective: generic_task
+  - optim: lambo
+
+name: LaMBO2
+feature_dim: 128
+embed_dim: 32
+kernel_size: 5
+batch_size: 128
+max_epochs: 16
+data_dir: ./.cache
+wandb_mode: offline
+random_seed: 42
+num_steps: 1
+num_mutations_per_step: 1
+max_sequence_length: 32
+num_samples: ${.batch_size}
+allow_length_change: false
+fft_expansion_factor: 2
+accelerator: gpu
+
+trainer:
+  _target_: lightning.Trainer
+  max_epochs: ${optimizer.max_epochs}
+  num_sanity_val_steps: 0
+  accelerator: ${optimizer.accelerator}
+  devices: 1
+  precision: 16
+  logger:
+    _target_: lightning.pytorch.loggers.WandbLogger
+    save_dir: ${output_dir}
+    dir: ${output_dir}
+  log_every_n_steps: 1
+  enable_checkpointing: ${save_ckpts}

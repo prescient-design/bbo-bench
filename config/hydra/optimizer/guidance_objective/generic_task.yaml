@@ -1,0 +1,14 @@
+tag: generic_task
+static_kwargs:
+  _target_: cortex.acquisition.GraphNEI
+  objectives:
+    - generic_task
+  constraints: null
+    # generic_task:
+      # - generic_constraint
+  scaling: null
+runtime_kwargs:
+  _target_: cortex.acquisition.get_graph_nei_runtime_kwargs
+  objectives: ${optimizer.guidance_objective.static_kwargs.objectives}
+  constraints: ${optimizer.guidance_objective.static_kwargs.constraints}
+  scaling: ${optimizer.guidance_objective.static_kwargs.scaling}
