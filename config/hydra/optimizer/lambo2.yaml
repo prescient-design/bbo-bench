@@ -22,7 +22,7 @@ wandb_mode: offline
 random_seed: 42
 num_steps: 1
 num_mutations_per_step: 1
-max_sequence_length: 32
+max_sequence_length: 256
 num_samples: ${.batch_size}
 allow_length_change: false
 fft_expansion_factor: 2

@@ -1,12 +1,9 @@
 _target_: poli.objective_repository.EhrlichHoloBlackBox
-#num_states: 32 # commenting out because poli api does not have this parameter; has vocab parameter if we want to pass in a different vocab than 20 aa
-sequence_length: 128 # changed from dim
-n_motifs: 8 # changed from n_motifs
+sequence_length: 128
+n_motifs: 8
 motif_length: 8
 quantization: ${test_function.motif_length}
 epistasis_factor: 0.0
 noise_std: 0.0
-#negate: true # what is this?
-alphabet: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
-'1', '2', '3', '4', '5', '6'] # vocab of 32
+alphabet: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "1", "2", "3", "4", "5", "6"] # vocab of size 32
 seed: 50494 # only change this if you want to change the actual test function instance

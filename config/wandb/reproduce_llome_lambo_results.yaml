@@ -6,25 +6,31 @@ metric:
 
 parameters:
   exp_name:
-    value: example_sweep
+    value: llome_lambo_reproduction
   random_seed:
     value: 0
   test_function:
-    value: ehr_v-08_l-128_m-8_c-8_q-8
-  presolved_data_package:
-    value: ehr_v-08_l-128_m-8_c-8_q-8
+    values:
+      - ehr_v-08_l-128_m-8_c-8_q-8
+      - ehr_v-32_l-032_m-4_c-4_q-2
+      - ehr_v-32_l-032_m-4_c-4_q-4
+      - ehr_v-32_l-128_m-4_c-4_q-2
+      - ehr_v-32_l-128_m-4_c-4_q-4
+      - ehr_v-32_l-128_m-8_c-8_q-8
   num_opt_steps:
     value: 12
+  run_presolver:
+    value: False
 
-  # LaMBO-2 Optimizer Parameters
+  # Optimizer Parameters
   optimizer.batch_size:
     value: 128
   optimizer.num_samples:
-    value: 128
+    value: 2000
   optimizer.num_steps:
-    values: [2, 4]
+    value: 64
   optimizer.num_mutations_per_step:
-    values: [2, 4]
+    values: [16, 24]
   optimizer.max_epochs:
     value: 16
   optimizer.fft_expansion_factor:
@@ -32,9 +38,7 @@ parameters:
   optimizer.optim.max_guidance_updates:
     value: 2
   optimizer.optim.guidance_step_size:
-    distribution: log_normal
-    mu: -3.4
-    sigma: 1
+    values: [0.01, 0.05]
   optimizer.optim.kl_weight:
     value: 0
   optimizer.optim.exclude_initial_solution:

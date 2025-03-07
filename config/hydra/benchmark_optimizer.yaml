@@ -1,20 +1,20 @@
 defaults:
   - _self_
   - optimizer: lambo2
-  - test_function: ehrlich_L32_V32_C4_K4
-  - presolved_data_package: ehrlich_L32_V32_C4_K4
+  - test_function: ehr_v-08_l-128_m-8_c-8_q-8
+  - presolved_data_package: ${test_function}
 
 random_seed: 0
 log_interval: 1
-num_opt_steps: 5
-wandb_host: "https://api.wandb.ai"
+num_opt_steps: 2
+wandb_host: "https://genentech.wandb.io" # alternative common option: "https://api.wandb.ai"
 wandb_mode: online
 output_dir: "/data/bbo_bench_output"
-project_name: bbo_bench_test
+project_name: bbo_bench_example
 exp_name: hyperparameter_search
 job_name: ???
 __version__: 0.0.0
 dtype: bfloat16
-run_presolver: True
+run_presolver: False
 save_intermediate_sols: False
 save_ckpts: False
