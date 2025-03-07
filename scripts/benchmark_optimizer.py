@@ -3,7 +3,6 @@ import random
 import hydra
 import numpy as np
 import torch
-import wandb
 from bbo_bench.observers import SimpleObserver
 from bbo_bench.utils import add_vocab_to_lambo_cfg, load_presolved_data
 from holo.logging import wandb_setup
@@ -12,6 +11,8 @@ from poli_baselines.solvers.bayesian_optimization.lambo2 import LaMBO2
 from poli_baselines.solvers.simple.genetic_algorithm import (
     FixedLengthGeneticAlgorithm,
 )
+
+import wandb
 
 
 @hydra.main(
@@ -93,7 +94,7 @@ def main(cfg):
             )
         else:
             raise ValueError(
-                "config optimizer name: {cfg.optimizer.name} is not currently supported"
+                f"config optimizer name: {cfg.optimizer.name} is not currently supported"
             )
 
     # Run solver

@@ -4,9 +4,10 @@ from typing import Iterable
 
 import Levenshtein
 import numpy as np
-import wandb
 from poli.core.black_box_information import BlackBoxInformation
 from poli.core.util.abstract_observer import AbstractObserver
+
+import wandb
 
 
 class SimpleObserver(AbstractObserver):
@@ -211,8 +212,8 @@ class SimpleObserver(AbstractObserver):
             filename: Name of the file to save the data
         """
         if self.cfg.save_intermediate_sols:
-            x_s = np.concat(self.x_s, axis=0)[:, 0]
-            y_s = np.concat(self.y_s, axis=0)[:, 0]
+            x_s = np.concatenate(self.x_s, axis=0)[:, 0]
+            y_s = np.concatenate(self.y_s, axis=0)[:, 0]
             x_s = [str(x) for x in x_s]
             y_s = [float(y) for y in y_s]
             print(x_s)
