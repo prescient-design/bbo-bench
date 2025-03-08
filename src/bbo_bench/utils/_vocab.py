@@ -1,3 +1,4 @@
+import copy
 import tempfile
 
 
@@ -12,7 +13,8 @@ def add_vocab_to_lambo_cfg(cfg, vocab: list):
         cfg: The updated LaMBO2 config file.
     """
     # Use black_box vocab to create temporary vocab file for LaMBO2
-    vocab.extend(
+    new_vocab = copy.deepcopy(vocab)
+    new_vocab.extend(
         [
             "<cls>",
             "<pad>",
@@ -28,7 +30,7 @@ def add_vocab_to_lambo_cfg(cfg, vocab: list):
         mode="w", suffix=".txt", delete=False
     ) as temp_file:
         # Write each token to the file, one per line
-        for token in vocab:
+        for token in new_vocab:
             temp_file.write(f"{token}\n")
         # Get the name of the temporary file
         temp_file_name = temp_file.name
