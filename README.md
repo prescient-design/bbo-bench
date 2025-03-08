@@ -53,12 +53,12 @@ to initialize this sweep, then run the command that wandb outputs (i.e. `wandb a
 The benchmarking script provided in this repo isolates much of the logging functionality in observers, which track metrics every time the black box function is queried.
 The `SimpleObserver` class found in `src/bbo_bench/observers/_simple_observer.py` is the default observer, and it tracks metrics such as simple regret, cumulative regret, and diversity of proposed solutions. You can add other metrics by adding methods to `SimpleObserver` or defining a new observer class.
 
-Observers are attached to the black box, so they only track metrics for solutions submitted to the black box for evaluation. Other metrics (for example, model training logs for a model within your optimizer) can be logged independently. As an example, the LaMBO-2 optimizer by default tracks internal metrics with a [lightning WandbLogger](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.loggers.wandb.html).
+Observers are attached to the black box, so they only track metrics for solutions submitted to the black box for evaluation. Other metrics (for example, model training logs for a model within your optimizer) can be logged independently. As an example, we pass a [lightning WandbLogger](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.loggers.wandb.html) to the LaMBO-2 optimizer in the default script.
 
 ## Running experiments with a different optimizer
 To run experiments with a different optimizer from the [poli-baselines](https://github.com/MachineLearningLifeScience/poli-baselines.git) repo:
 
-1. Create a new config file in config/hydra/optimizer/ for your chosen optimizer
+1. Create a new config file in `config/hydra/optimizer/` for your chosen optimizer
 2. Update the main config to use your new optimizer:
 ```bash
 python scripts/benchmark_optimizer.py optimizer=your_optimizer
@@ -79,7 +79,7 @@ If you've developed a new optimizer that's not in poli-baselines, follow these g
 - Output format
     - The optimizer should output solutions, i.e. query the black box, with NumPy arrays with the same formatting as above
 
-- Match API with `AbstractSolver` from `poli-baselines`
+- Match API with `AbstractSolver` from poli-baselines
     - The [AbstractSolver](https://github.com/MachineLearningLifeScience/poli-baselines/blob/main/src/poli_baselines/core/abstract_solver.py) class has a very lightweight API; for consistency with the other optimizers benchmarked, it is advisable to implement a `solve` method in your optimizer to match this API.
 
 Then, within the `benchmark_optimizer.py` script, in the section that currently instantiates the LaMBO-2 optimizer, you can instead instantiate the new optimizer.
