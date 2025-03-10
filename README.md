@@ -12,11 +12,22 @@ bbo-bench serves as a lightweight experimentation wrapper around the [poli-core]
 The main value of this repo is in streamlining the experimental workflow, allowing researchers to quickly set up and run benchmarking experiments without boilerplate code.
 
 ## Installation
-
+### Using uv
+Install [uv](https://github.com/astral-sh/uv).
 From the root of the repo, do:
 ```bash
+uv venv --python 3.10 # creates a new virtual environment in the bbo-bench directory
+source .venv/bin/activate
+uv pip install -e .
+```
+### Using mamba
+From the root of the repo, do:
+```bash
+mamba create -n <my_env> python=3.10 # creates a new mamba environment
+mamba activate <my_env>
 pip install -e .
 ```
+
 ## Usage
 
 To run the benchmarking script with the default settings specified in the configs, run:
