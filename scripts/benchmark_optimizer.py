@@ -4,7 +4,7 @@ import hydra
 import numpy as np
 import torch
 from bbo_bench.observers import SimpleObserver
-from bbo_bench.utils import add_vocab_to_lambo_cfg, load_presolved_data
+from bbo_bench.utils import add_vocab_to_lambo_cfg
 from holo.logging import wandb_setup
 from omegaconf import OmegaConf, open_dict
 from poli_baselines.solvers.bayesian_optimization.lambo2 import LaMBO2
@@ -63,8 +63,9 @@ def main(cfg):
     # If not running presolver, load solutions from data package
     else:
         assert cfg.presolved_data_package is not None
-        presolver_x, presolver_y = load_presolved_data(
-            cfg.presolved_data_package, black_box
+        presolver_x, presolver_y = hydra.utils.call(
+            cfg.presolved_data_package,
+            black_box=black_box,
         )
 
     # Instantiate observer to record metrics

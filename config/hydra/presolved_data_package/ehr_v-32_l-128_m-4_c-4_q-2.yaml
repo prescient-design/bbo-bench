@@ -1,2 +1,3 @@
+_target_: bbo_bench.utils.load_presolved_data
 bucket_or_url: https://zenodo.org/records/14926734/files/llome_ehrlich_benchmark_data_package.tgz
 folder_name: llome_ehrlich_benchmark_data_package/ehr_v-32_l-128_m-4_c-4_q-2

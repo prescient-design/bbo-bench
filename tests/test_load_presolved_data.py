@@ -9,13 +9,10 @@ class TestLoadPresolvedData:
         self.black_box = MagicMock()
         self.black_box.alphabet = ["A", "B", "C", "D"]
 
-        # Create mock config
-        class MockConfig:
-            def __init__(self):
-                self.bucket_or_url = "https://example.com/data.tar.gz"
-                self.folder_name = "data"
-
-        self.cfg = MockConfig()
+        # Test parameters
+        self.url = "https://example.com/data.tar.gz"
+        self.s3_bucket = "s3://my-bucket"
+        self.folder_name = "data"
 
     @patch("bbo_bench.utils._load_presolved_data._load_url_data")
     def test_load_presolved_data_from_url(self, mock_load_url_data):
@@ -28,12 +25,10 @@ class TestLoadPresolvedData:
         mock_load_url_data.return_value = (ehrlich_data, presolved_data)
 
         # Call function
-        x, y = load_presolved_data(self.cfg, self.black_box)
+        x, y = load_presolved_data(self.url, self.folder_name, self.black_box)
 
         # Check that _load_url_data was called with correct args
-        mock_load_url_data.assert_called_once_with(
-            self.cfg.bucket_or_url, self.cfg.folder_name
-        )
+        mock_load_url_data.assert_called_once_with(self.url, self.folder_name)
 
         # Check return values
         assert x.shape == (2, 4)  # 2 sequences, each with 4 elements
@@ -45,9 +40,6 @@ class TestLoadPresolvedData:
 
     @patch("bbo_bench.utils._load_presolved_data._load_s3_data")
     def test_load_presolved_data_from_s3(self, mock_load_s3_data):
-        # Update config to use S3
-        self.cfg.bucket_or_url = "s3://my-bucket"
-
         # Setup mock return values
         ehrlich_data = [{"num_states": 8, "dim": 128, "num_motifs": 8}]
         presolved_data = [
@@ -57,11 +49,13 @@ class TestLoadPresolvedData:
         mock_load_s3_data.return_value = (ehrlich_data, presolved_data)
 
         # Call function
-        x, y = load_presolved_data(self.cfg, self.black_box)
+        x, y = load_presolved_data(
+            self.s3_bucket, self.folder_name, self.black_box
+        )
 
         # Check that _load_s3_data was called with correct args
         mock_load_s3_data.assert_called_once_with(
-            self.cfg.bucket_or_url, self.cfg.folder_name
+            self.s3_bucket, self.folder_name
         )
 
         # Check return values (same as above)

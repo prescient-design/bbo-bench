@@ -5,26 +5,27 @@ import numpy as np
 import pooch
 
 
-def load_presolved_data(cfg, black_box):
+def load_presolved_data(bucket_or_url, folder_name, black_box):
     """Load presolved data from either an S3 bucket or URL.
 
     Args:
-        cfg: config file specifying where to find the presolved data.
-        black_box: black box function being optimized.
+        bucket_or_url (str): The S3 bucket name or URL to download the data package from.
+        folder_name (str): The desired folder to access data from.
+        black_box: black box object from poli-core being optimized
 
     Returns:
         presolver_x: The initial solutions to pass to the optimizer.
         presolver_y: The initial scores to pass to the optimizer.
     """
-    if "s3" in cfg.bucket_or_url:
+    if "s3" in bucket_or_url:
         ehrlich_data, presolved_data = _load_s3_data(
-            cfg.bucket_or_url,
-            cfg.folder_name,
+            bucket_or_url,
+            folder_name,
         )
     else:
         ehrlich_data, presolved_data = _load_url_data(
-            cfg.bucket_or_url,
-            cfg.folder_name,
+            bucket_or_url,
+            folder_name,
         )
 
     # Sanity check that black box is the same between this experiment and the data package
