@@ -1,0 +1,19 @@
+defaults:
+  - _self_
+  - optimizer: lambo2
+  - test_function: ehr_v-32_l-010_m-3_c-2_q-3
+
+random_seed: 0
+log_interval: 1
+num_opt_steps: 50
+wandb_host: "https://genentech.wandb.io" # alternative common option: "https://api.wandb.ai"
+wandb_mode: online
+output_dir: "/data/dingf7/bbo_bench_output"
+project_name: bbo_bench_shapley_test
+exp_name: debug_shapley
+job_name: ???
+__version__: 0.0.0
+dtype: bfloat16
+run_presolver: True
+save_intermediate_sols: False
+save_ckpts: False
