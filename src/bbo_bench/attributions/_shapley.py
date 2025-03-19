@@ -6,9 +6,40 @@ from typing import Callable, Optional
 import numpy as np
 
 
+def get_shapley_weight(vector, index, N):
+    """Compute the weight for the Shapley values."""
+    S = int(N - np.sum(vector) if vector[index] else N - np.sum(vector) - 1)
+    return 1.0 / (math.comb(N - 1, S))
+
+
+def _check_reshape_inputs(example_seq, ref_seq):
+    """Check and potentially reshape inputs for the Shapley computation.
+
+    Args:
+        example_seq: The example sequence to compute Shapley values for.
+        ref_seq: The reference sequence to compare against.
+    """
+    # Check shape constraints
+    assert (
+        example_seq.shape == ref_seq.shape
+    ), "example_seq and ref_seq should have the same shape"
+    assert (
+        len(example_seq.shape) == 1 or example_seq.shape[0] == 1
+    ), "example_seq hould be 1D or nominally 2D"
+    # Reshape if necessary
+    if len(example_seq.shape) > 1:
+        example_seq = example_seq[0]
+        ref_seq = ref_seq[0]
+    assert len(example_seq.shape) == 1, "example_seq should be 1D"
+    assert len(example_seq) == len(
+        ref_seq
+    ), "example_seq and ref_seq should have the same length"
+    return example_seq, ref_seq
+
+
 def exact_shapley(
     value_function,
-    final_seq: np.ndarray,
+    example_seq: np.ndarray,
     ref_seq: np.ndarray,
 ):
     """Compute Shapley values for the given model and input x.
@@ -20,29 +51,16 @@ def exact_shapley(
     Returns:
         A list of Shapley values for each feature in x.
     """
-    # Check shape constraints
-    assert (
-        final_seq.shape == ref_seq.shape
-    ), "final_seq and ref_seq should have the same shape"
-    assert (
-        len(final_seq.shape) == 1 or final_seq.shape[0] == 1
-    ), "final_seq should be 1D or nominally 2D"
-    if len(final_seq.shape) > 1:
-        final_seq = final_seq[0]
-        ref_seq = ref_seq[0]
-    assert len(final_seq.shape) == 1, "final_seq should be 1D"
-    assert len(final_seq) == len(
-        ref_seq
-    ), "final_seq and ref_seq should have the same length"
+    example_seq, ref_seq = _check_reshape_inputs(example_seq, ref_seq)
 
-    N = len(final_seq)
+    N = len(example_seq)
 
     # Initialize Shapley values
     shap_values = np.zeros(N)
 
     # Compute power set of features either taking value design_i or reference_i
     power_set = np.array(list(itertools.product([0, 1], repeat=N)))
-    mut_power_set = np.where(power_set, final_seq, ref_seq)
+    mut_power_set = np.where(power_set, example_seq, ref_seq)
     # print(mut_power_set)
 
     # Compute the rewards for each feature
@@ -50,22 +68,10 @@ def exact_shapley(
     rewards[rewards == -np.inf] = 0
     # print("Values:", rewards)
 
-    def get_weights(i):
-        def get_inner_weights(vector):
-            """
-            Compute the weights for the Shapley values.
-            """
-            S = int(
-                N - np.sum(vector) if vector[i] else N - np.sum(vector) - 1
-            )
-            return 1.0 / (math.comb(N - 1, S))
-
-        return get_inner_weights
-
     for index in range(N):
         # Compute the weights for the Shapley values
         weights = np.array(
-            [get_weights(index)(vector) for vector in power_set]
+            [get_shapley_weight(vector, index, N) for vector in power_set]
         )
         sign = np.array([1 if vector[index] else -1 for vector in power_set])
 
@@ -78,7 +84,7 @@ def exact_shapley(
 
 def mcmc_shapley(
     value_function: Callable,
-    final_seq: np.ndarray,
+    example_seq: np.ndarray,
     ref_seq: np.ndarray,
     n_samples: int = 1000,
     batch_size: int = 128,
@@ -92,7 +98,7 @@ def mcmc_shapley(
 
     Args:
         value_function: Function that takes a batch of sequences and returns their values.
-        final_seq: Target sequence for which to compute attributions.
+        example_seq: Target sequence for which to compute attributions.
         ref_seq: Reference sequence to compare against.
         n_samples: Number of permutation samples to use for approximation.
         batch_size: Batch size for evaluating the value function.
@@ -103,18 +109,13 @@ def mcmc_shapley(
         Array of Shapley values for each position in the sequence.
     """
     # Validate inputs
-    assert (
-        final_seq.shape == ref_seq.shape
-    ), "final_seq and ref_seq should have the same shape"
-    if len(final_seq.shape) > 1:
-        final_seq = final_seq[0]
-        ref_seq = ref_seq[0]
+    example_seq, ref_seq = _check_reshape_inputs(example_seq, ref_seq)
 
     # Set random seed if provided
     if seed is not None:
         np.random.seed(seed)
 
-    N = len(final_seq)
+    N = len(example_seq)
     shap_values = np.zeros(N)
 
     if verbose:
@@ -154,20 +155,20 @@ def mcmc_shapley(
                 # Add features that come before current feature in the permutation
                 for j in range(feature_pos_in_perm):
                     prev_feature = perm[j]
-                    seq_without[prev_feature] = final_seq[prev_feature]
-                    seq_with[prev_feature] = final_seq[prev_feature]
+                    seq_without[prev_feature] = example_seq[prev_feature]
+                    seq_with[prev_feature] = example_seq[prev_feature]
 
                 # Add the current feature only to seq_with
-                seq_with[pos] = final_seq[pos]
+                seq_with[pos] = example_seq[pos]
 
                 # Evaluate both sequences
                 if perm_idx == 0:
                     # Initialize arrays for the batch
                     seqs_without = np.zeros(
-                        (batch_size_actual, N), dtype=final_seq.dtype
+                        (batch_size_actual, N), dtype=example_seq.dtype
                     )
                     seqs_with = np.zeros(
-                        (batch_size_actual, N), dtype=final_seq.dtype
+                        (batch_size_actual, N), dtype=example_seq.dtype
                     )
 
                 seqs_without[perm_idx] = seq_without
@@ -244,7 +245,7 @@ def optimize_batch_size(
 
 def permutation_sampling_shapley(
     value_function: Callable,
-    final_seq: np.ndarray,
+    example_seq: np.ndarray,
     ref_seq: np.ndarray,
     n_samples: int = 200,
     batch_size: int = 32,
@@ -258,7 +259,7 @@ def permutation_sampling_shapley(
 
     Args:
         value_function: Function that takes a batch of sequences and returns their values.
-        final_seq: Target sequence for which to compute attributions.
+        example_seq: Target sequence for which to compute attributions.
         ref_seq: Reference sequence to compare against.
         n_permutations: Number of permutations to sample.
         batch_size: Number of sequences to evaluate at once.
@@ -269,17 +270,12 @@ def permutation_sampling_shapley(
         Array of Shapley values for each position in the sequence.
     """
     # Input validation
-    assert (
-        final_seq.shape == ref_seq.shape
-    ), "final_seq and ref_seq must have the same shape"
-    if len(final_seq.shape) > 1:
-        final_seq = final_seq[0]
-        ref_seq = ref_seq[0]
+    example_seq, ref_seq = _check_reshape_inputs(example_seq, ref_seq)
 
     if seed is not None:
         np.random.seed(seed)
 
-    N = len(final_seq)
+    N = len(example_seq)
     shap_values = np.zeros(N)
 
     if verbose:
@@ -301,8 +297,8 @@ def permutation_sampling_shapley(
 
         # Add features one by one according to the permutation
         for pos_idx, pos in enumerate(perm):
-            # Update the sequence with the feature from final_seq
-            current_seq[pos] = final_seq[pos]
+            # Update the sequence with the feature from example_seq
+            current_seq[pos] = example_seq[pos]
 
             # Evaluate the new sequence
             new_value = value_function(current_seq.reshape(1, -1))[0]
@@ -325,7 +321,7 @@ def permutation_sampling_shapley(
 
 def kernel_shapley(
     value_function: Callable,
-    final_seq: np.ndarray,
+    example_seq: np.ndarray,
     ref_seq: np.ndarray,
     n_samples: int = 2048,
     reg_param: float = 0.01,
@@ -340,7 +336,7 @@ def kernel_shapley(
 
     Args:
         value_function: Function that takes a batch of sequences and returns their values.
-        final_seq: Target sequence for which to compute attributions.
+        example_seq: Target sequence for which to compute attributions.
         ref_seq: Reference sequence to compare against.
         n_samples: Number of samples to use for approximation.
         reg_param: Regularization parameter for the weighted linear regression.
@@ -352,17 +348,12 @@ def kernel_shapley(
         Array of Shapley values for each position in the sequence.
     """
     # Validate inputs
-    assert (
-        final_seq.shape == ref_seq.shape
-    ), "final_seq and ref_seq should have the same shape"
-    if len(final_seq.shape) > 1:
-        final_seq = final_seq[0]
-        ref_seq = ref_seq[0]
+    example_seq, ref_seq = _check_reshape_inputs(example_seq, ref_seq)
 
     if seed is not None:
         np.random.seed(seed)
 
-    N = len(final_seq)
+    N = len(example_seq)
 
     if verbose:
         print(f"Computing Kernel SHAP values for sequence of length {N}")
@@ -410,9 +401,9 @@ def kernel_shapley(
     coalitions = np.array(coalitions)
 
     # Create sequences based on the coalitions
-    sequences = np.zeros((n_samples, N), dtype=final_seq.dtype)
+    sequences = np.zeros((n_samples, N), dtype=example_seq.dtype)
     for i, coalition in enumerate(coalitions):
-        sequences[i] = np.where(coalition, final_seq, ref_seq)
+        sequences[i] = np.where(coalition, example_seq, ref_seq)
 
     # Evaluate sequences in batches
     n_batches = int(np.ceil(n_samples / batch_size))
@@ -487,7 +478,7 @@ def cortex_model_to_value_function(model):
 
 def shapley(
     value_function: Callable,
-    final_seq: np.ndarray,
+    example_seq: np.ndarray,
     ref_seq: np.ndarray,
     method: str = "exact",
     **kwargs,
@@ -496,7 +487,7 @@ def shapley(
 
     Args:
         value_function: Function that takes a batch of sequences and returns their values.
-        final_seq: Target sequence for which to compute attributions.
+        example_seq: Target sequence for which to compute attributions.
         ref_seq: Reference sequence to compare against.
         method: Method to use for computing Shapley values:
             - 'exact': Exact computation (only for short sequences)
@@ -511,15 +502,15 @@ def shapley(
     if method == "exact":
         # Import the exact computation function from the existing code
         # from ._shapley import shapley as exact_shapley
-        return exact_shapley(value_function, final_seq, ref_seq)
+        return exact_shapley(value_function, example_seq, ref_seq)
     elif method == "monte_carlo":
-        return mcmc_shapley(value_function, final_seq, ref_seq, **kwargs)
+        return mcmc_shapley(value_function, example_seq, ref_seq, **kwargs)
     elif method == "permutation":
         return permutation_sampling_shapley(
-            value_function, final_seq, ref_seq, **kwargs
+            value_function, example_seq, ref_seq, **kwargs
         )
     elif method == "kernel":
-        return kernel_shapley(value_function, final_seq, ref_seq, **kwargs)
+        return kernel_shapley(value_function, example_seq, ref_seq, **kwargs)
     else:
         raise ValueError(
             f"Unknown method: {method}. Available methods: 'exact', 'monte_carlo', 'permutation', 'kernel'."
