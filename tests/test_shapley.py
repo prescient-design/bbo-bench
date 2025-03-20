@@ -31,10 +31,10 @@ def simple_test_data():
     def value_fn(x):
         return np.array([sum(s == "B" for s in seq) for seq in x])
 
-    final = np.array(["B", "B", "A"])
+    example = np.array(["B", "B", "A"])
     ref = np.array(["A", "A", "A"])
     expected = np.array([1.0, 1.0, 0.0])
-    return value_fn, final, ref, expected
+    return value_fn, example, ref, expected
 
 
 @pytest.fixture
@@ -47,10 +47,10 @@ def xor_test_data():
             [1.0 if sum(s == "B" for s in seq) % 2 == 1 else 0.0 for seq in x]
         )
 
-    final = np.array(["B", "B", "B"])
+    example = np.array(["B", "B", "B"])
     ref = np.array(["A", "A", "A"])
     expected = np.array([1.0 / 3, 1.0 / 3, 1.0 / 3])
-    return xor_value_fn, final, ref, expected
+    return xor_value_fn, example, ref, expected
 
 
 @pytest.fixture
@@ -74,10 +74,10 @@ def complex_test_data():
     def complex_value_fn(batches):
         return np.array([inner_fn(batch) for batch in batches])
 
-    final = np.array(["B", "C", "D"])
+    example = np.array(["B", "C", "D"])
     ref = np.array(["A", "A", "A"])
     expected = np.array([0.13333333, 0.433333333, 0.43333333])
-    return complex_value_fn, final, ref, expected
+    return complex_value_fn, example, ref, expected
 
 
 @pytest.fixture
@@ -112,9 +112,27 @@ def long_test_data():
                     values[i] += 0.25
         return values
 
-    final = np.array(["B", "C", "D", "E"] * 4)  # 16 elements
+    example = np.array(["B", "C", "D", "E"] * 4)  # 16 elements
     ref = np.array(["A"] * 16)
-    return random_value_fn, final, ref
+    return random_value_fn, example, ref
+
+
+@pytest.fixture
+def partially_infeasible_test_data():
+    """Fixture for test data with partially infeasible sequences."""
+
+    def feasibility_fn(x):
+        return np.array([1 if s[0] != "B" else 0 for s in x])
+
+    def value_fn(x):
+        # Example value function
+        values = np.array([sum(s == "B" for s in seq) for seq in x])
+        return np.where(feasibility_fn, values, 0)
+
+    example = np.array(["B", "B", "B"])
+    ref = np.array(["A", "A", "A"])
+    expected = np.array([-1.0, 0.5, 0.5])
+    return value_fn, example, ref, expected, feasibility_fn
 
 
 @pytest.fixture
@@ -173,9 +191,9 @@ def mock_cortex_model():
 # Tests for exact shapley (if available)
 def test_exact_shapley_simple(simple_test_data):
     """Test that the exact Shapley function works for a simple case."""
-    value_fn, final, ref, expected = simple_test_data
+    value_fn, example, ref, expected = simple_test_data
     # Compute exact Shapley values for the simple case
-    exact_values = exact_shapley(value_fn, final, ref)
+    exact_values = exact_shapley(value_fn, example, ref)
 
     # Check results
     np.testing.assert_allclose(exact_values, expected, atol=1e-6)
@@ -184,9 +202,9 @@ def test_exact_shapley_simple(simple_test_data):
 def test_exact_shapley_xor(xor_test_data):
     """Test that the exact Shapley function works for an XOR case."""
 
-    value_fn, final, ref, expected = xor_test_data
+    value_fn, example, ref, expected = xor_test_data
     # Compute exact Shapley values
-    exact_values = exact_shapley(value_fn, final, ref)
+    exact_values = exact_shapley(value_fn, example, ref)
 
     # Check results
     np.testing.assert_allclose(exact_values, expected, atol=1e-6)
@@ -194,9 +212,31 @@ def test_exact_shapley_xor(xor_test_data):
 
 def test_exact_shapley_complex(complex_test_data):
     """Test that the exact Shapley function works for a complex case."""
-    value_fn, final, ref, expected = complex_test_data
+    value_fn, example, ref, expected = complex_test_data
     # Compute exact Shapley values
-    exact_values = exact_shapley(value_fn, final, ref)
+    exact_values = exact_shapley(value_fn, example, ref)
+
+    # Check results
+    np.testing.assert_allclose(exact_values, expected, atol=1e-6)
+
+
+def test_exact_shapley_partially_infeasible(partially_infeasible_test_data):
+    """Test that the exact Shapley function works for a partially infeasible case."""
+    (
+        value_fn,
+        example,
+        ref,
+        expected,
+        feasibility_fn,
+    ) = partially_infeasible_test_data
+    # Compute exact Shapley values
+    exact_values = shapley(
+        value_fn,
+        example,
+        ref,
+        method="exact",
+        feasibility_mask_function=feasibility_fn,
+    )
 
     # Check results
     np.testing.assert_allclose(exact_values, expected, atol=1e-6)
@@ -206,10 +246,10 @@ def test_exact_shapley_complex(complex_test_data):
 # Tests for mcmc_shapley
 def test_mcmc_shapley_simple(simple_test_data):
     """Test that the mcmc_shapley function works for a simple case."""
-    value_fn, final, ref, expected = simple_test_data
+    value_fn, example, ref, expected = simple_test_data
 
     # Use a high number of samples for accurate results
-    values = mcmc_shapley(value_fn, final, ref, n_samples=1000, seed=42)
+    values = mcmc_shapley(value_fn, example, ref, n_samples=1000, seed=42)
 
     # Check results
     np.testing.assert_allclose(values, expected, atol=0.02)
@@ -217,10 +257,10 @@ def test_mcmc_shapley_simple(simple_test_data):
 
 def test_mcmc_shapley_xor(xor_test_data):
     """Test that the mcmc_shapley function works for an XOR case."""
-    value_fn, final, ref, expected = xor_test_data
+    value_fn, example, ref, expected = xor_test_data
 
     # Use a high number of samples for accurate results
-    values = mcmc_shapley(value_fn, final, ref, n_samples=1000, seed=42)
+    values = mcmc_shapley(value_fn, example, ref, n_samples=1000, seed=42)
 
     # Check results
     np.testing.assert_allclose(values, expected, atol=0.02)
@@ -228,16 +268,16 @@ def test_mcmc_shapley_xor(xor_test_data):
 
 def test_mcmc_shapley_complex(complex_test_data):
     """Test that the mcmc_shapley function works for a complex case."""
-    value_fn, final, ref, expected = complex_test_data
+    value_fn, example, ref, expected = complex_test_data
 
     # Use a high number of samples for accurate results
-    values = mcmc_shapley(value_fn, final, ref, n_samples=5000, seed=42)
+    values = mcmc_shapley(value_fn, example, ref, n_samples=5000, seed=42)
 
     # Check results
     np.testing.assert_allclose(values, expected, atol=0.01)
     # Check that sum of attributions equals total value difference
     total_diff = (
-        value_fn(final.reshape(1, -1))[0] - value_fn(ref.reshape(1, -1))[0]
+        value_fn(example.reshape(1, -1))[0] - value_fn(ref.reshape(1, -1))[0]
     )
     assert np.isclose(values.sum(), total_diff)
 
@@ -245,10 +285,10 @@ def test_mcmc_shapley_complex(complex_test_data):
 # Tests for permutation_sampling_shapley
 def test_permutation_sampling_shapley_simple(simple_test_data):
     """Test that the permutation_sampling_shapley function works for a simple case."""
-    value_fn, final, ref, expected = simple_test_data
+    value_fn, example, ref, expected = simple_test_data
 
     values = permutation_sampling_shapley(
-        value_fn, final, ref, n_samples=500, seed=42
+        value_fn, example, ref, n_samples=500, seed=42
     )
 
     # Check results
@@ -257,10 +297,10 @@ def test_permutation_sampling_shapley_simple(simple_test_data):
 
 def test_permutation_sampling_shapley_xor(xor_test_data):
     """Test that the permutation_sampling_shapley function works for an XOR case."""
-    value_fn, final, ref, expected = xor_test_data
+    value_fn, example, ref, expected = xor_test_data
 
     values = permutation_sampling_shapley(
-        value_fn, final, ref, n_samples=500, seed=42
+        value_fn, example, ref, n_samples=500, seed=42
     )
 
     # Check results
@@ -269,17 +309,17 @@ def test_permutation_sampling_shapley_xor(xor_test_data):
 
 def test_permutation_sampling_shapley_complex(complex_test_data):
     """Test that the permutation_sampling_shapley function works for a complex case."""
-    value_fn, final, ref, expected = complex_test_data
+    value_fn, example, ref, expected = complex_test_data
 
     values = permutation_sampling_shapley(
-        value_fn, final, ref, n_samples=5000, seed=42
+        value_fn, example, ref, n_samples=5000, seed=42
     )
 
     # Check results
     np.testing.assert_allclose(values, expected, atol=0.01)
     # Check that sum of attributions equals total value difference
     total_diff = (
-        value_fn(final.reshape(1, -1))[0] - value_fn(ref.reshape(1, -1))[0]
+        value_fn(example.reshape(1, -1))[0] - value_fn(ref.reshape(1, -1))[0]
     )
     assert np.isclose(values.sum(), total_diff)
 
@@ -287,9 +327,9 @@ def test_permutation_sampling_shapley_complex(complex_test_data):
 # Tests for kernel_shapley
 def test_kernel_shapley_simple(simple_test_data):
     """Test that the kernel_shapley function works for a simple case."""
-    value_fn, final, ref, expected = simple_test_data
+    value_fn, example, ref, expected = simple_test_data
 
-    values = kernel_shapley(value_fn, final, ref, n_samples=500, seed=42)
+    values = kernel_shapley(value_fn, example, ref, n_samples=500, seed=42)
 
     # Check results
     np.testing.assert_allclose(values, expected, atol=0.1)
@@ -297,9 +337,9 @@ def test_kernel_shapley_simple(simple_test_data):
 
 def test_kernel_shapley_xor(xor_test_data):
     """Test that the kernel_shapley function works for an XOR case."""
-    value_fn, final, ref, expected = xor_test_data
+    value_fn, example, ref, expected = xor_test_data
 
-    values = kernel_shapley(value_fn, final, ref, n_samples=10000, seed=42)
+    values = kernel_shapley(value_fn, example, ref, n_samples=10000, seed=42)
 
     # Check results
     np.testing.assert_allclose(values, expected, atol=0.15)
@@ -307,9 +347,9 @@ def test_kernel_shapley_xor(xor_test_data):
 
 def test_kernel_shapley_complex(complex_test_data):
     """Test that the kernel_shapley function works for a complex case."""
-    value_fn, final, ref, expected = complex_test_data
+    value_fn, example, ref, expected = complex_test_data
 
-    values = kernel_shapley(value_fn, final, ref, n_samples=10000, seed=42)
+    values = kernel_shapley(value_fn, example, ref, n_samples=10000, seed=42)
 
     # Check results
     np.testing.assert_allclose(values, expected, atol=0.1)
@@ -318,7 +358,7 @@ def test_kernel_shapley_complex(complex_test_data):
 # Tests for long sequences
 def test_long_sequence(long_test_data):
     """Test that all methods work with longer sequences."""
-    value_fn, final, ref = long_test_data
+    value_fn, example, ref = long_test_data
 
     # Get methods and expected runtimes
     methods = [
@@ -333,14 +373,15 @@ def test_long_sequence(long_test_data):
         start_time = time.time()
 
         # Use fewer samples for test speed
-        values = method_fn(value_fn, final, ref, n_samples=200, seed=42)
+        values = method_fn(value_fn, example, ref, n_samples=200, seed=42)
 
         runtime = time.time() - start_time
         results[method_name] = {"values": values, "runtime": runtime}
 
         # Check that sum of attributions equals total value difference
         total_diff = (
-            value_fn(final.reshape(1, -1))[0] - value_fn(ref.reshape(1, -1))[0]
+            value_fn(example.reshape(1, -1))[0]
+            - value_fn(ref.reshape(1, -1))[0]
         )
         np.testing.assert_allclose(values.sum(), total_diff, rtol=0.2)
 
@@ -354,7 +395,7 @@ def test_long_sequence(long_test_data):
             ), f"{method_name}: C should contribute more than E"
 
     # Print performance comparison
-    print(f"\nPerformance for sequence length {len(final)}:")
+    print(f"\nPerformance for sequence length {len(example)}:")
     for method_name, data in results.items():
         print(f"{method_name}: {data['runtime']:.3f}s")
 
@@ -376,10 +417,10 @@ def test_long_sequence(long_test_data):
 @pytest.mark.parametrize("method", ["monte_carlo", "permutation", "kernel"])
 def test_unified_shapley_interface(simple_test_data, method):
     """Test the unified shapley interface with different methods."""
-    value_fn, final, ref, expected = simple_test_data
+    value_fn, example, ref, expected = simple_test_data
 
     values = shapley(
-        value_fn, final, ref, method=method, n_samples=500, seed=42
+        value_fn, example, ref, method=method, n_samples=500, seed=42
     )
 
     # Check they produce reasonable values
@@ -388,10 +429,10 @@ def test_unified_shapley_interface(simple_test_data, method):
 
 def test_unified_shapley_invalid_method(simple_test_data):
     """Test that the unified interface raises an error for invalid methods."""
-    value_fn, final, ref, _ = simple_test_data
+    value_fn, example, ref, _ = simple_test_data
 
     with pytest.raises(ValueError):
-        shapley(value_fn, final, ref, method="invalid")
+        shapley(value_fn, example, ref, method="invalid")
 
 
 # Test batch size optimization
@@ -423,25 +464,25 @@ def test_cortex_model_function_conversion(mock_cortex_model):
     value_function = cortex_model_to_value_function(mock_cortex_model)
 
     # Create test sequences
-    final_seq = np.array(["B", "C", "A", "A", "B", "A", "A", "A"])
+    example_seq = np.array(["B", "C", "A", "A", "B", "A", "A", "A"])
     ref_seq = np.array(["A"] * 8)
 
     # Test the value function
-    values = value_function(np.array([final_seq, ref_seq]))
+    values = value_function(np.array([example_seq, ref_seq]))
 
     # Check that we get expected values
     expected = np.array(
-        [0.5 * 2 + 0.3 * 1, 0]
+        [[0.5 * 2 + 0.3 * 1], [0]]
     )  # 2 'B's (0.5 each) and 1 'C' (0.3) vs all 'A's (0)
     np.testing.assert_allclose(values, expected, atol=1e-6)
 
     # Compute Shapley values
     shapley_values = kernel_shapley(
-        value_function, final_seq, ref_seq, n_samples=500, seed=42
+        value_function, example_seq, ref_seq, n_samples=500, seed=42
     )
 
     # Check positions with specific tokens have appropriate attributions
-    for i, token in enumerate(final_seq):
+    for i, token in enumerate(example_seq):
         if token == "B":
             # 'B' positions should have high positive attribution
             assert (
@@ -476,7 +517,7 @@ def test_increasing_sequence_lengths(length):
         return values
 
     # Create sequences of the specified length
-    final_seq = np.array(["B", "C", "D", "E"] * (length // 4 + 1))[:length]
+    example_seq = np.array(["B", "C", "D", "E"] * (length // 4 + 1))[:length]
     ref_seq = np.array(["A"] * length)
 
     methods = ["monte_carlo", "permutation", "kernel"]
@@ -490,7 +531,7 @@ def test_increasing_sequence_lengths(length):
 
         shapley(
             value_function,
-            final_seq,
+            example_seq,
             ref_seq,
             method=method,
             n_samples=n_samples,

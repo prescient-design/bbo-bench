@@ -51,8 +51,6 @@ def exact_shapley(
     Returns:
         A list of Shapley values for each feature in x.
     """
-    example_seq, ref_seq = _check_reshape_inputs(example_seq, ref_seq)
-
     N = len(example_seq)
 
     # Initialize Shapley values
@@ -61,12 +59,10 @@ def exact_shapley(
     # Compute power set of features either taking value design_i or reference_i
     power_set = np.array(list(itertools.product([0, 1], repeat=N)))
     mut_power_set = np.where(power_set, example_seq, ref_seq)
-    # print(mut_power_set)
 
     # Compute the rewards for each feature
     rewards = value_function(mut_power_set).flatten()
-    rewards[rewards == -np.inf] = 0
-    # print("Values:", rewards)
+    # rewards[rewards == -np.inf] = 0
 
     for index in range(N):
         # Compute the weights for the Shapley values
@@ -108,9 +104,6 @@ def mcmc_shapley(
     Returns:
         Array of Shapley values for each position in the sequence.
     """
-    # Validate inputs
-    example_seq, ref_seq = _check_reshape_inputs(example_seq, ref_seq)
-
     # Set random seed if provided
     if seed is not None:
         np.random.seed(seed)
@@ -269,9 +262,6 @@ def permutation_sampling_shapley(
     Returns:
         Array of Shapley values for each position in the sequence.
     """
-    # Input validation
-    example_seq, ref_seq = _check_reshape_inputs(example_seq, ref_seq)
-
     if seed is not None:
         np.random.seed(seed)
 
@@ -347,9 +337,6 @@ def kernel_shapley(
     Returns:
         Array of Shapley values for each position in the sequence.
     """
-    # Validate inputs
-    example_seq, ref_seq = _check_reshape_inputs(example_seq, ref_seq)
-
     if seed is not None:
         np.random.seed(seed)
 
@@ -419,7 +406,7 @@ def kernel_shapley(
         batch_sequences = sequences[start_idx:end_idx]
         batch_values = value_function(batch_sequences)
 
-        values[start_idx:end_idx] = batch_values
+        values[start_idx:end_idx] = batch_values.flatten()
 
     # Compute Shapley kernel weights
     coalition_sizes = coalitions.sum(axis=1)
@@ -450,7 +437,7 @@ def kernel_shapley(
     return shap_values
 
 
-def cortex_model_to_value_function(model):
+def cortex_model_to_value_function(model, task="generic_task"):
     """Convert a cortex model to a value function compatible with Shapley calculation.
 
     Args:
@@ -466,12 +453,20 @@ def cortex_model_to_value_function(model):
         tree_output = model.call_from_str_array(
             str_array=str_array, corrupt_frac=0.0
         )
-        mean_pred = (
-            tree_output.fetch_task_outputs("generic_task")["loc"]
-            .squeeze(-1)
-            .mean(0)
-        )
-        return mean_pred.detach().cpu().numpy()
+        if task == "generic_task":
+            mean_pred = (
+                tree_output.fetch_task_outputs("generic_task")["loc"]
+                .squeeze(-1)
+                .mean(0)
+            )
+            return mean_pred.detach().cpu().numpy()[:, None]
+        elif task == "generic_constraint":
+            logits = tree_output.fetch_task_outputs("generic_constraint")[
+                "logits"
+            ]
+            probs_feasible = logits.softmax(-1)[..., 1]
+            mean_pred = probs_feasible.mean(0)
+            return mean_pred.detach().cpu().numpy()[:, None]
 
     return inner_model_value_function
 
@@ -481,9 +476,13 @@ def shapley(
     example_seq: np.ndarray,
     ref_seq: np.ndarray,
     method: str = "exact",
+    feasibility_mask_function: Optional[Callable] = None,
+    infeasible_placeholder_value: float = 0.0,
     **kwargs,
 ) -> np.ndarray:
-    """Compute Shapley values using the specified method.
+    """
+    Compute Shapley values using the specified method.
+    If feasibility_mask_function is used, the Shapley value computation only considers feasible inputs
 
     Args:
         value_function: Function that takes a batch of sequences and returns their values.
@@ -494,23 +493,53 @@ def shapley(
             - 'monte_carlo': Monte Carlo sampling
             - 'permutation': Permutation sampling
             - 'kernel': Kernel SHAP algorithm (default, recommended for longer sequences)
+        feasibility_mask_function: Function that returns True for feasible inputs
         **kwargs: Additional arguments to pass to the specific method.
 
     Returns:
         Array of Shapley values for each position in the sequence.
     """
+    # Validate inputs
+    example_seq, ref_seq = _check_reshape_inputs(example_seq, ref_seq)
+
+    # Default feasibility - everything is feasible
+    if feasibility_mask_function is None:
+
+        def feasibility_mask_function(seqs):
+            return np.ones((len(seqs), 1), dtype=bool)
+
+    def masked_value_function(seqs):
+        raw_values = value_function(seqs)
+        is_feasible = feasibility_mask_function(seqs)
+
+        # Ensure the feasibility mask is the same shape as the raw values
+        if raw_values.ndim == 1:
+            is_feasible = is_feasible.flatten()
+        assert (
+            raw_values.shape == is_feasible.shape
+        ), f"Value function output shape {raw_values.shape} does not match feasibility mask shape {is_feasible.shape}"
+
+        values = np.where(
+            is_feasible, raw_values, infeasible_placeholder_value
+        )
+        return values
+
     if method == "exact":
         # Import the exact computation function from the existing code
         # from ._shapley import shapley as exact_shapley
-        return exact_shapley(value_function, example_seq, ref_seq)
+        return exact_shapley(masked_value_function, example_seq, ref_seq)
     elif method == "monte_carlo":
-        return mcmc_shapley(value_function, example_seq, ref_seq, **kwargs)
+        return mcmc_shapley(
+            masked_value_function, example_seq, ref_seq, **kwargs
+        )
     elif method == "permutation":
         return permutation_sampling_shapley(
-            value_function, example_seq, ref_seq, **kwargs
+            masked_value_function, example_seq, ref_seq, **kwargs
         )
     elif method == "kernel":
-        return kernel_shapley(value_function, example_seq, ref_seq, **kwargs)
+        return kernel_shapley(
+            masked_value_function, example_seq, ref_seq, **kwargs
+        )
     else:
         raise ValueError(
             f"Unknown method: {method}. Available methods: 'exact', 'monte_carlo', 'permutation', 'kernel'."
