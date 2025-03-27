@@ -6,7 +6,7 @@ fit_cfg:
   weight_averaging: null
   optimizer:
     _target_: torch.optim.Adam
-    lr: 5e-3
+    lr: 1e-3
     weight_decay: 0.
     betas: [0.9, 0.99]
     fused: false

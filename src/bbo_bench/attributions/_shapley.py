@@ -78,12 +78,12 @@ def exact_shapley(
     return shap_values
 
 
-def mcmc_shapley(
+def monte_carlo_shapley(
     value_function: Callable,
     example_seq: np.ndarray,
     ref_seq: np.ndarray,
-    n_samples: int = 1000,
-    batch_size: int = 128,
+    n_samples: int = 1280,
+    batch_size: int = 1280,
     seed: Optional[int] = None,
     verbose: bool = False,
 ) -> np.ndarray:
@@ -236,11 +236,126 @@ def optimize_batch_size(
     return batch_sizes[best_idx]
 
 
+def vectorized_permutation_sampling_shapley(
+    value_function: callable,
+    example_seq: np.ndarray,
+    ref_seq: np.ndarray,
+    n_samples: int = 200,
+    batch_size: int = 128,
+    seed: Optional[int] = None,
+    verbose: bool = False,
+) -> np.ndarray:
+    """Compute Shapley values with a highly optimized implementation.
+
+    This implementation minimizes both the number of value function calls and
+    the Python loop overhead by processing features one at a time across all
+    permutations simultaneously. It also skips positions where example_seq
+    and ref_seq have the same value.
+
+    Args:
+        value_function: Function that takes a batch of sequences and returns their values.
+        example_seq: Target sequence for which to compute attributions.
+        ref_seq: Reference sequence to compare against.
+        n_samples: Number of permutation samples to use for approximation.
+        batch_size: Batch size for evaluating sequences.
+        seed: Random seed for reproducibility.
+        verbose: Whether to print progress information.
+
+    Returns:
+        Array of Shapley values for each position in the sequence.
+    """
+    if seed is not None:
+        np.random.seed(seed)
+
+    N = len(example_seq)
+    shap_values = np.zeros(N)
+
+    # Find positions where example_seq and ref_seq differ
+    diff_mask = example_seq != ref_seq
+    diff_positions = np.where(diff_mask)[0]
+    num_diff = len(diff_positions)
+
+    if num_diff == 0:
+        return shap_values  # All values are the same, all Shapley values are 0
+
+    if verbose:
+        print("Computing Shapley values with optimized algorithm")
+        print(f"Sequence length: {N}, Different positions: {num_diff}")
+        print(f"Permutations: {n_samples}")
+        start_time = time.time()
+
+    # If all positions are different, use the original approach
+    if num_diff == N:
+        # Generate permutations of all positions
+        permutations = np.array(
+            [np.random.permutation(N) for _ in range(n_samples)]
+        )
+    else:
+        # Generate permutations of only the different positions
+        diff_permutations = np.array(
+            [np.random.permutation(num_diff) for _ in range(n_samples)]
+        )
+        # Map these to the original position indices
+        permutations = diff_positions[diff_permutations]
+
+    # Process permutations in batches
+    batch_count = (n_samples + batch_size - 1) // batch_size
+
+    for batch_idx in range(batch_count):
+        if verbose and batch_idx % max(1, batch_count // 5) == 0:
+            print(f"Processing batch {batch_idx+1}/{batch_count}...")
+
+        start_idx = batch_idx * batch_size
+        end_idx = min((batch_idx + 1) * batch_size, n_samples)
+        batch_perms = permutations[start_idx:end_idx]
+        batch_size_actual = len(batch_perms)
+
+        # Initialize sequences to reference sequence
+        sequences = np.tile(ref_seq, (batch_size_actual, 1))
+
+        # Calculate initial value only once (all sequences are identical at the start)
+        ref_value = value_function(ref_seq.reshape(1, -1))[0]
+        # Create a vector of identical values
+        values = np.full(batch_size_actual, ref_value)
+
+        # For each position in the permutation
+        for pos in range(
+            len(batch_perms[0])
+        ):  # This is N for all diff or num_diff for only diffs
+            # For each permutation, get the feature at this position
+            features = batch_perms[:, pos]
+
+            # Store the old values
+            old_values = values.copy()
+
+            # Update sequences - vectorized
+            row_indices = np.arange(batch_size_actual)
+            sequences[row_indices, features] = example_seq[features]
+
+            # Evaluate new sequences
+            values = value_function(sequences).flatten()
+
+            # Calculate marginal contributions - vectorized
+            value_diffs = values - old_values
+
+            # Use np.add.at to handle repeated indices correctly
+            np.add.at(shap_values, features, value_diffs / n_samples)
+
+    if verbose:
+        elapsed_time = time.time() - start_time
+        print(f"Completed in {elapsed_time:.2f} seconds")
+        print(
+            f"Processed only {num_diff}/{N} positions (those with different values)"
+        )
+
+    return shap_values
+
+
 def permutation_sampling_shapley(
     value_function: Callable,
     example_seq: np.ndarray,
     ref_seq: np.ndarray,
-    n_samples: int = 200,
+    n_samples: int = 1024,
     batch_size: int = 32,
     seed: Optional[int] = None,
     verbose: bool = False,
@@ -529,7 +644,7 @@ def shapley(
         # from ._shapley import shapley as exact_shapley
         return exact_shapley(masked_value_function, example_seq, ref_seq)
     elif method == "monte_carlo":
-        return mcmc_shapley(
+        return monte_carlo_shapley(
             masked_value_function, example_seq, ref_seq, **kwargs
         )
     elif method == "permutation":
@@ -538,6 +653,10 @@ def shapley(
         )
     elif method == "kernel":
         return kernel_shapley(
+            masked_value_function, example_seq, ref_seq, **kwargs
+        )
+    elif method == "vectorized":
+        return vectorized_permutation_sampling_shapley(
             masked_value_function, example_seq, ref_seq, **kwargs
         )
     else:

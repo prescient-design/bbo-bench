@@ -16,7 +16,7 @@ from bbo_bench.attributions._shapley import (
     cortex_model_to_value_function,
     exact_shapley,
     kernel_shapley,
-    mcmc_shapley,
+    monte_carlo_shapley,
     optimize_batch_size,
     permutation_sampling_shapley,
     shapley,
@@ -243,35 +243,41 @@ def test_exact_shapley_partially_infeasible(partially_infeasible_test_data):
     # Check that sum of attributions equals total value difference
 
 
-# Tests for mcmc_shapley
-def test_mcmc_shapley_simple(simple_test_data):
-    """Test that the mcmc_shapley function works for a simple case."""
+# Tests for monte_carlo_shapley
+def test_monte_carlo_shapley_simple(simple_test_data):
+    """Test that the monte_carlo_shapley function works for a simple case."""
     value_fn, example, ref, expected = simple_test_data
 
     # Use a high number of samples for accurate results
-    values = mcmc_shapley(value_fn, example, ref, n_samples=1000, seed=42)
+    values = monte_carlo_shapley(
+        value_fn, example, ref, n_samples=1000, seed=42
+    )
 
     # Check results
     np.testing.assert_allclose(values, expected, atol=0.02)
 
 
-def test_mcmc_shapley_xor(xor_test_data):
-    """Test that the mcmc_shapley function works for an XOR case."""
+def test_monte_carlo_shapley_xor(xor_test_data):
+    """Test that the monte_carlo_shapley function works for an XOR case."""
     value_fn, example, ref, expected = xor_test_data
 
     # Use a high number of samples for accurate results
-    values = mcmc_shapley(value_fn, example, ref, n_samples=1000, seed=42)
+    values = monte_carlo_shapley(
+        value_fn, example, ref, n_samples=1000, seed=42
+    )
 
     # Check results
     np.testing.assert_allclose(values, expected, atol=0.02)
 
 
-def test_mcmc_shapley_complex(complex_test_data):
-    """Test that the mcmc_shapley function works for a complex case."""
+def test_monte_carlo_shapley_complex(complex_test_data):
+    """Test that the monte_carlo_shapley function works for a complex case."""
     value_fn, example, ref, expected = complex_test_data
 
     # Use a high number of samples for accurate results
-    values = mcmc_shapley(value_fn, example, ref, n_samples=5000, seed=42)
+    values = monte_carlo_shapley(
+        value_fn, example, ref, n_samples=5000, seed=42
+    )
 
     # Check results
     np.testing.assert_allclose(values, expected, atol=0.01)
@@ -362,7 +368,7 @@ def test_long_sequence(long_test_data):
 
     # Get methods and expected runtimes
     methods = [
-        (mcmc_shapley, "Monte Carlo"),
+        (monte_carlo_shapley, "Monte Carlo"),
         (permutation_sampling_shapley, "Permutation"),
         (kernel_shapley, "Kernel SHAP"),
     ]

@@ -1,11 +1,11 @@
 defaults:
-  - _self_
   - optimizer: lambo2
-  - test_function: ehr_v-32_l-010_m-3_c-2_q-3
+  - test_function: ehr_v-16_l-010_m-4_c-2_q-2
+  - _self_
 
 random_seed: 0
 log_interval: 1
-num_opt_steps: 50
+num_opt_steps: 10
 wandb_host: "https://genentech.wandb.io" # alternative common option: "https://api.wandb.ai"
 wandb_mode: online
 output_dir: "/data/dingf7/bbo_bench_output"
@@ -17,3 +17,11 @@ dtype: bfloat16
 run_presolver: True
 save_intermediate_sols: False
 save_ckpts: False
+
+shapley_method: "exact"
+
+optimizer:
+  max_epochs: 10
+  num_steps: 2 # 4
+  num_mutations_per_step: 2
+  fft_expansion_factor: 2 # 4

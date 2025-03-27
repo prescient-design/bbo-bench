@@ -1,0 +1,48 @@
+project: bbo_bench_shapley_test
+method: grid
+metric:
+  goal: maximize
+  name: attributions_value/shapley_spearman
+
+parameters:
+  exp_name:
+    value: evaluate_shapley_vectorization
+  random_seed:
+    values: [0, 1, 2]
+  test_function:
+    value: ehr_v-16_l-128_m-4_c-4_q-4
+  num_opt_steps:
+    value: 100
+  run_presolver:
+    value: True
+  shapley_method:
+    value: vectorized
+
+  # Test function Parameters
+  test_function.seed:
+    values: [0, 1, 2, 3]
+  # Optimizer Parameters
+  optimizer.num_steps:
+    value: 16
+  optimizer.num_mutations_per_step:
+    value: 2
+  optimizer.max_epochs:
+    value: 50
+  optimizer.fft_expansion_factor:
+    value: 2
+  optimizer.optim.max_guidance_updates:
+    value: 2
+  optimizer.optim.guidance_step_size:
+    value: 0.1 #[0.01, 0.1]
+  optimizer.optim.kl_weight:
+    value: 0
+  optimizer.optim.exclude_initial_solution:
+    value: False
+
+
+program: scripts/benchmark_shapley.py
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args_no_hyphens}
